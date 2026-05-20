@@ -67,9 +67,7 @@ app.post('/api/start', (req, res) => {
 
   // Step 1: Fetch metadata
   const infoProc = spawn('yt-dlp', [
-    '--dump-json', '--no-playlist', '--no-update',
-    '--extractor-args', 'youtube:player_client=android,web',
-    url,
+    '--dump-json', '--no-playlist', '--no-update', url,
   ]);
   let infoData = '';
   infoProc.stdout.on('data', d => { infoData += d; });
@@ -94,8 +92,6 @@ app.post('/api/start', (req, res) => {
     const dlArgs = [
       '--no-playlist',
       '--no-update',
-      // Android + web client bypasses the JS runtime requirement
-      '--extractor-args', 'youtube:player_client=android,web',
       '-f', buildFormat(quality),
       '--merge-output-format', 'mp4',
       '--progress', '--newline',
