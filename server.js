@@ -31,12 +31,22 @@ function getLocalIP() {
 }
 
 function buildFormat(quality) {
-  const h = { '720': 720, '1080': 1080, '1440': 1440, '2160': 2160 }[quality] || 1080;
+  const h = { '720': 720, '1080': 1080, '1440': 1440, '2160': 2160 }[quality] || 720;
+  // Prefer pre-muxed H.264+AAC (single stream, no ffmpeg merge, half the disk space)
+  // format 22 = YouTube 720p pre-muxed H.264+AAC MP4 — ideal for iPhone
+  if (h <= 720) {
+    return (
+      `bestvideo[height<=${h}][vcodec^=avc1][acodec!='none'][ext=mp4]` +
+      `/22/best[height<=${h}][vcodec^=avc1][ext=mp4]` +
+      `/bestvideo[height<=${h}][vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]` +
+      `/best[height<=${h}][ext=mp4]/best[height<=${h}]`
+    );
+  }
+  // For 1080p+ must use DASH streams
   return (
     `bestvideo[height<=${h}][vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]` +
     `/bestvideo[height<=${h}][ext=mp4]+bestaudio[ext=m4a]` +
-    `/best[height<=${h}][ext=mp4]` +
-    `/best[height<=${h}]`
+    `/best[height<=${h}][ext=mp4]/best[height<=${h}]`
   );
 }
 
@@ -191,6 +201,20 @@ app.get('/api/progress/:id', (req, res) => {
   req.on('close', () => {
     clearInterval(ping);
     job.clients = job.clients.filter(c => c !== res);
+  });
+});
+
+
+// ── GET /api/status/:id (reliable polling fallback) ──────────────────────────
+app.get('/api/status/:id', (req, res) => {
+  const job = jobs.get(req.params.id);
+  if (!job) return res.status(404).json({ status: 'not-found' });
+  res.json({
+    status: job.status, percent: job.percent || 0,
+    speed: job.speed || '', eta: job.eta || '',
+    size: job.size || '', phase: job.phase || '',
+    title: job.title || '', thumbnail: job.thumbnail || '',
+    fileSize: job.fileSize || 0, error: job.error || null, id: job.id,
   });
 });
 

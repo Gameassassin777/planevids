@@ -107,67 +107,97 @@ async function startDownload() {
   }
 }
 
-// ─── SSE: Mac-side download progress ─────────────────────────────────────────
+// ─── Progress display (SSE + polling fallback) ────────────────────────────────
+let pollTimer = null;
+
+function applyProgressData(data, id) {
+  if (!data || data.status === 'not-found') return;
+
+  if (data.title) {
+    activeJobMeta.title = data.title;
+    activeJobMeta.thumbnail = data.thumbnail;
+    document.getElementById('mac-dl-video-title').textContent = data.title || '';
+  }
+
+  if (data.status === 'fetching-info') {
+    document.getElementById('mac-dl-phase-label').textContent = 'Fetching video info…';
+  }
+
+  if (data.status === 'info-ready') {
+    document.getElementById('mac-dl-phase-label').textContent = 'Downloading on Mac…';
+  }
+
+  if (data.status === 'downloading') {
+    const phaseLabel = { video: 'Downloading video…', audio: 'Downloading audio…', merging: 'Merging…' }[data.phase] || 'Downloading…';
+    document.getElementById('mac-dl-phase-label').textContent = phaseLabel;
+    const pct = Math.round(data.percent || 0);
+    document.getElementById('mac-progress-fill').style.width = `${pct}%`;
+    document.getElementById('mac-progress-pct').textContent = `${pct}%`;
+    if (data.speed) document.getElementById('mac-progress-speed').textContent = data.speed;
+    if (data.eta && data.eta !== '00:00' && data.eta !== 'Unknown') document.getElementById('mac-progress-eta').textContent = `ETA ${data.eta}`;
+    if (data.size) document.getElementById('mac-progress-size').textContent = data.size;
+  }
+
+  if (data.status === 'merging') {
+    document.getElementById('mac-dl-phase-label').textContent = 'Merging video + audio…';
+    document.getElementById('mac-progress-fill').style.width = '99%';
+    document.getElementById('mac-progress-pct').textContent = '99%';
+  }
+
+  if (data.status === 'complete') {
+    stopPolling();
+    if (activeSSE) { activeSSE.close(); activeSSE = null; }
+    activeJobMeta.fileSize = data.fileSize;
+    if (data.title) activeJobMeta.title = data.title;
+    if (data.thumbnail) activeJobMeta.thumbnail = data.thumbnail;
+    showReadyScreen(activeJobId, activeJobMeta);
+  }
+
+  if (data.status === 'error') {
+    stopPolling();
+    if (activeSSE) { activeSSE.close(); activeSSE = null; }
+    showView('home');
+    const errEl = document.getElementById('home-error');
+    errEl.textContent = data.message || 'Download failed';
+    errEl.hidden = false;
+  }
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+function startPolling(id) {
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    if (!activeJobId || activeJobId !== id) { stopPolling(); return; }
+    try {
+      const res = await fetch(`/api/status/${id}`);
+      if (res.ok) applyProgressData(await res.json(), id);
+    } catch {}
+  }, 2000);
+}
+
 function connectSSE(id) {
   if (activeSSE) { activeSSE.close(); activeSSE = null; }
+  startPolling(id); // polling runs regardless — SSE is bonus
+
   const es = new EventSource(`/api/progress/${id}`);
   activeSSE = es;
 
   es.onmessage = e => {
-    const data = JSON.parse(e.data);
-
-    if (data.status === 'info-ready' || data.title) {
-      activeJobMeta.title = data.title;
-      activeJobMeta.thumbnail = data.thumbnail;
-      document.getElementById('mac-dl-video-title').textContent = data.title || '';
-      document.getElementById('mac-dl-phase-label').textContent = 'Downloading on Mac…';
-    }
-
-    if (data.status === 'downloading') {
-      const phaseLabel = { video: 'Downloading video…', audio: 'Downloading audio…', merging: 'Merging…' }[data.phase] || 'Downloading…';
-      document.getElementById('mac-dl-phase-label').textContent = phaseLabel;
-      const pct = Math.round(data.percent || 0);
-      document.getElementById('mac-progress-fill').style.width = `${pct}%`;
-      document.getElementById('mac-progress-pct').textContent = `${pct}%`;
-      if (data.speed) document.getElementById('mac-progress-speed').textContent = data.speed;
-      if (data.eta && data.eta !== '00:00') document.getElementById('mac-progress-eta').textContent = `ETA ${data.eta}`;
-      if (data.size) document.getElementById('mac-progress-size').textContent = data.size;
-    }
-
-    if (data.status === 'merging') {
-      document.getElementById('mac-dl-phase-label').textContent = 'Merging video + audio…';
-      document.getElementById('mac-progress-fill').style.width = '99%';
-      document.getElementById('mac-progress-pct').textContent = '99%';
-    }
-
-    if (data.status === 'complete') {
-      es.close(); activeSSE = null;
-      activeJobMeta.fileSize = data.fileSize;
-      if (data.title) activeJobMeta.title = data.title;
-      if (data.thumbnail) activeJobMeta.thumbnail = data.thumbnail;
-      showReadyScreen(activeJobId, activeJobMeta);
-    }
-
-    if (data.status === 'error') {
-      es.close(); activeSSE = null;
-      showView('home');
-      const errEl = document.getElementById('home-error');
-      errEl.textContent = data.message || 'Download failed';
-      errEl.hidden = false;
-    }
+    try { applyProgressData(JSON.parse(e.data), id); } catch {}
   };
 
   es.onerror = () => {
-    // SSE dropped — reconnect after 3s if job still active
-    es.close();
-    if (activeJobId === id) {
-      setTimeout(() => connectSSE(id), 3000);
-    }
+    es.close(); activeSSE = null;
+    // polling already running — no action needed
   };
 }
 
 // ─── Cancel Mac download ──────────────────────────────────────────────────────
 document.getElementById('btn-cancel-mac').addEventListener('click', async () => {
+  stopPolling();
   if (activeSSE) { activeSSE.close(); activeSSE = null; }
   if (activeJobId) {
     await fetch(`/api/cancel/${activeJobId}`, { method: 'POST' });
