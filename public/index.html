@@ -109,11 +109,30 @@
       <p class="dl-subtitle" id="ready-video-title"></p>
       <p class="dl-filesize" id="ready-filesize"></p>
     </div>
-    <div class="card info-card">
-      <span class="info-icon">📱</span>
-      <p>Now tap <strong>Save to iPhone</strong>. Your Mac will send the file over local WiFi — usually under 2 minutes. <strong>Keep this screen open</strong> until it finishes.</p>
+
+    <div class="save-options">
+      <!-- Option 1: Files App -->
+      <div class="save-option-card" id="option-files">
+        <div class="save-option-icon">📁</div>
+        <div class="save-option-body">
+          <h3 class="save-option-title">Save to Files App</h3>
+          <p class="save-option-desc">Saves as an MP4 in <strong>Files → Downloads</strong>. Watch in any app — native player, VLC, etc. Works offline.</p>
+          <a id="btn-save-to-files" class="btn-primary" style="text-decoration:none;margin-top:10px">📁 Download to Files App</a>
+        </div>
+      </div>
+
+      <div class="save-option-divider">or</div>
+
+      <!-- Option 2: In-App OPFS -->
+      <div class="save-option-card">
+        <div class="save-option-icon">🎬</div>
+        <div class="save-option-body">
+          <h3 class="save-option-title">Save to PlaneVids</h3>
+          <p class="save-option-desc">Saves inside this app only. Not visible in Files, but plays in PlaneVids offline. Good if Files App download doesn't work.</p>
+          <button id="btn-save-to-phone" class="btn-secondary" style="margin-top:10px;width:100%">🎬 Save to PlaneVids</button>
+        </div>
+      </div>
     </div>
-    <button id="btn-save-to-phone" class="btn-primary btn-full">📲 Save to iPhone (~2 min)</button>
   </div>
 </section>
 

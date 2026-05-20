@@ -66,7 +66,11 @@ app.post('/api/start', (req, res) => {
   res.json({ id });
 
   // Step 1: Fetch metadata
-  const infoProc = spawn('yt-dlp', ['--dump-json', '--no-playlist', url]);
+  const infoProc = spawn('yt-dlp', [
+    '--dump-json', '--no-playlist', '--no-update',
+    '--extractor-args', 'youtube:player_client=android,web',
+    url,
+  ]);
   let infoData = '';
   infoProc.stdout.on('data', d => { infoData += d; });
 
@@ -89,6 +93,9 @@ app.post('/api/start', (req, res) => {
 
     const dlArgs = [
       '--no-playlist',
+      '--no-update',
+      // Android + web client bypasses the JS runtime requirement
+      '--extractor-args', 'youtube:player_client=android,web',
       '-f', buildFormat(quality),
       '--merge-output-format', 'mp4',
       '--progress', '--newline',
@@ -228,6 +235,32 @@ app.get('/api/file/:id', (req, res) => {
     fs.createReadStream(filePath).pipe(res);
   }
 });
+
+// ── GET /api/download/:id — triggered download with the real video title ─────
+// "Save to Files App" hits this. iOS Safari saves it to Files → Downloads
+// as a properly-named MP4 that any app can open.
+app.get('/api/download/:id', (req, res) => {
+  if (!/^[\w-]+$/.test(req.params.id)) return res.status(400).end();
+  const id = req.params.id;
+  const filePath = path.join(DOWNLOADS_DIR, `${id}.mp4`);
+  if (!fs.existsSync(filePath)) return res.status(404).end();
+
+  let title = id;
+  try {
+    const meta = JSON.parse(fs.readFileSync(path.join(DOWNLOADS_DIR, `${id}.json`), 'utf8'));
+    if (meta.title) title = meta.title.replace(/[^\w\s-]/g, '').trim().substring(0, 80);
+  } catch {}
+
+  const total = fs.statSync(filePath).size;
+  res.writeHead(200, {
+    'Content-Type': 'video/mp4',
+    'Content-Length': total,
+    'Content-Disposition': `attachment; filename="${title}.mp4"`,
+    'Accept-Ranges': 'bytes',
+  });
+  fs.createReadStream(filePath).pipe(res);
+});
+
 
 // ── DELETE /api/file/:id ─────────────────────────────────────────────────────
 app.delete('/api/file/:id', async (req, res) => {

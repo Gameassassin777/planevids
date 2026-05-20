@@ -145,9 +145,7 @@ function connectSSE(id) {
       activeJobMeta.fileSize = data.fileSize;
       if (data.title) activeJobMeta.title = data.title;
       if (data.thumbnail) activeJobMeta.thumbnail = data.thumbnail;
-      document.getElementById('ready-video-title').textContent = activeJobMeta.title || '';
-      document.getElementById('ready-filesize').textContent = `${formatBytes(data.fileSize)} ready on Mac`;
-      showView('ready');
+      showReadyScreen(activeJobId, activeJobMeta);
     }
 
     if (data.status === 'error') {
