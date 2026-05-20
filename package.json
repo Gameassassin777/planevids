@@ -1,0 +1,12 @@
+{
+  "name": "planevids",
+  "version": "1.0.0",
+  "description": "Download YouTube videos for offline airplane viewing on iPhone",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>PlaneVids</title>
+  <meta name="description" content="Download YouTube videos to your iPhone for offline flights."/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="PlaneVids"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#f59e0b"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+
+<!-- HEADER -->
+<header id="app-header">
+  <div class="header-inner">
+    <button id="btn-back" class="btn-back" hidden aria-label="Back">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="logo"><span class="logo-icon">✈</span><span class="logo-text">PlaneVids</span></div>
+    <div class="header-spacer"></div>
+  </div>
+</header>
+
+<!-- SCREEN: HOME -->
+<section id="screen-home" class="screen active">
+  <div class="screen-content">
+    <div class="hero">
+      <div class="hero-icon">🛫</div>
+      <h1 class="hero-title">Ready for takeoff</h1>
+      <p class="hero-sub">Paste a YouTube link. Your Mac downloads it at full quality, then sends it to your iPhone in minutes over WiFi — no screen-lock worries.</p>
+    </div>
+    <div class="card input-card">
+      <label class="input-label" for="yt-url">YouTube URL</label>
+      <div class="input-row">
+        <input id="yt-url" type="url" inputmode="url" placeholder="https://youtube.com/watch?v=..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+        <button id="btn-fetch" class="btn-primary" aria-label="Fetch">
+          <span class="btn-label">Go</span>
+          <span class="btn-spinner hidden"></span>
+        </button>
+      </div>
+      <p id="home-error" class="error-msg" hidden></p>
+    </div>
+    <div class="card quality-card">
+      <h3 class="section-label">Quality</h3>
+      <div class="quality-grid" id="quality-grid">
+        <button class="quality-btn" data-quality="720">
+          <span class="q-res">720p</span><span class="q-size">~4–6 GB</span>
+        </button>
+        <button class="quality-btn selected" data-quality="1080">
+          <span class="q-res">1080p</span><span class="q-size">~8–12 GB</span>
+        </button>
+        <button class="quality-btn" data-quality="1440">
+          <span class="q-res">1440p</span><span class="q-size">~15–20 GB</span>
+        </button>
+        <button class="quality-btn" data-quality="2160">
+          <span class="q-res">4K</span><span class="q-size">~25–40 GB</span>
+        </button>
+      </div>
+      <p class="quality-note">🎯 1080p recommended — native iPhone screen resolution. Mac downloads it; iPhone just pulls from local WiFi (takes ~2 min).</p>
+    </div>
+    <div id="opfs-warning" class="card warn-card" hidden>
+      <span class="warn-icon">⚠️</span>
+      <p>OPFS not supported. Open this in <strong>Safari on iOS 16.4+</strong> to save videos offline.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SCREEN: MAC DOWNLOADING (server-side yt-dlp) -->
+<section id="screen-mac-dl" class="screen">
+  <div class="screen-content center-content">
+    <div class="dl-hero">
+      <div class="plane-animation">✈️</div>
+      <h2 class="dl-title" id="mac-dl-phase-label">Downloading on Mac…</h2>
+      <p class="dl-subtitle" id="mac-dl-video-title"></p>
+    </div>
+    <div class="card progress-card" style="width:100%">
+      <div class="progress-label-row">
+        <span id="mac-progress-pct">0%</span>
+        <span id="mac-progress-eta"></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="mac-progress-fill"></div></div>
+      <div class="progress-stats">
+        <span id="mac-progress-size"></span>
+        <span id="mac-progress-speed"></span>
+      </div>
+    </div>
+    <div class="card info-card">
+      <span class="info-icon">💻</span>
+      <p>Your Mac is doing the heavy lifting. You can <strong>lock your Mac screen</strong> — the download continues in the terminal. Come back when it's done.</p>
+    </div>
+    <button id="btn-cancel-mac" class="btn-secondary btn-full">Cancel</button>
+  </div>
+</section>
+
+<!-- SCREEN: READY TO SEND TO IPHONE -->
+<section id="screen-ready" class="screen">
+  <div class="screen-content center-content">
+    <div class="dl-hero">
+      <div class="ready-icon">✅</div>
+      <h2 class="dl-title">Downloaded on Mac!</h2>
+      <p class="dl-subtitle" id="ready-video-title"></p>
+      <p class="dl-filesize" id="ready-filesize"></p>
+    </div>
+    <div class="card info-card">
+      <span class="info-icon">📱</span>
+      <p>Now tap <strong>Save to iPhone</strong>. Your Mac will send the file over local WiFi — usually under 2 minutes. <strong>Keep this screen open</strong> until it finishes.</p>
+    </div>
+    <button id="btn-save-to-phone" class="btn-primary btn-full">📲 Save to iPhone (~2 min)</button>
+  </div>
+</section>
+
+<!-- SCREEN: TRANSFERRING TO IPHONE (OPFS write) -->
+<section id="screen-transfer" class="screen">
+  <div class="screen-content center-content">
+    <div class="dl-hero">
+      <div class="plane-animation">📡</div>
+      <h2 class="dl-title">Saving to iPhone…</h2>
+      <p class="dl-subtitle" id="transfer-video-title"></p>
+    </div>
+    <div class="card progress-card" style="width:100%">
+      <div class="progress-label-row">
+        <span id="transfer-progress-pct">0%</span>
+        <span id="transfer-progress-eta"></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="transfer-progress-fill"></div></div>
+      <div class="progress-stats">
+        <span id="transfer-received"></span>
+        <span id="transfer-speed"></span>
+      </div>
+    </div>
+    <div class="card wake-warning">
+      <span class="warn-icon">📵</span>
+      <p><strong>Don't lock your screen</strong> until the transfer finishes. This is fast — usually under 2 minutes.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SCREEN: LIBRARY -->
+<section id="screen-library" class="screen">
+  <div class="screen-content">
+    <div id="library-empty" class="empty-state" hidden>
+      <div class="empty-icon">📭</div>
+      <h2>No videos yet</h2>
+      <p>Download a YouTube video and it will appear here, ready to watch offline.</p>
+      <button class="btn-primary" onclick="showView('home')">+ Download a Video</button>
+    </div>
+    <div id="library-server-section" hidden>
+      <h3 class="section-label" style="margin-bottom:12px">On Your Mac (ready to send)</h3>
+      <div id="library-server-list" class="library-list"></div>
+    </div>
+    <div id="library-phone-section" hidden>
+      <h3 class="section-label" style="margin-bottom:12px;margin-top:20px">On This iPhone (offline ready)</h3>
+      <div id="library-phone-list" class="library-list"></div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREEN: PLAYER -->
+<section id="screen-player" class="screen">
+  <div class="player-wrapper">
+    <video id="video-player" controls playsinline preload="metadata" class="video-el"></video>
+    <div class="player-info">
+      <h2 id="player-title" class="player-title-text"></h2>
+    </div>
+  </div>
+</section>
+
+<!-- BOTTOM NAV -->
+<nav id="bottom-nav">
+  <button class="nav-tab active" id="nav-download" onclick="showView('home')">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    <span>Download</span>
+  </button>
+  <button class="nav-tab" id="nav-library" onclick="openLibrary()">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="4" height="15"/><rect x="10" y="2" width="4" height="20"/><rect x="18" y="11" width="4" height="11"/></svg>
+    <span>Library</span>
+    <span class="nav-badge" id="nav-badge" hidden></span>
+  </button>
+</nav>
+
+<script src="/app.js"></script>
+</body>
+</html>
