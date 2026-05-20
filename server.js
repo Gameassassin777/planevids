@@ -102,12 +102,18 @@ app.post('/api/start', (req, res) => {
     const proc = spawn('yt-dlp', dlArgs);
     job.proc = proc;
 
-    proc.stderr.on('data', chunk => {
-      for (const line of chunk.toString().split('\n')) {
+    let stdoutBuf = '';
+    proc.stdout.on('data', chunk => {
+      stdoutBuf += chunk.toString();
+      // Process only complete lines — chunks may split mid-line
+      const lines = stdoutBuf.split('\n');
+      stdoutBuf = lines.pop(); // keep incomplete last line buffered
+
+      for (const line of lines) {
         process.stdout.write(line + '\n');
 
-        // Progress line: [download]  45.3% of ~7.23GiB at 3.21MiB/s ETA 00:12:34
-        const m = line.match(/\[download\]\s+([\d.]+)%\s+of\s+~?\s*([\S]+)\s+at\s+([\S]+)\s+ETA\s+(\S+)/);
+        // Progress: [download]   0.0% of    4.45GiB at   14.30MiB/s ETA 04:12
+        const m = line.match(/\[download\]\s+([\d.]+)%\s+of\s+~?\s*(\S+)\s+at\s+(\S+)\s+ETA\s+(\S+)/);
         if (m) {
           job.percent = parseFloat(m[1]);
           job.size = m[2];
@@ -127,6 +133,9 @@ app.post('/api/start', (req, res) => {
         }
       }
     });
+
+    // stderr is only for errors
+    proc.stderr.on('data', d => process.stderr.write(d));
 
     proc.on('close', code => {
       if (code === 0 && fs.existsSync(outputPath)) {
