@@ -36,6 +36,34 @@ fi
 echo "  💾  Free disk space: ~${FREE_GB} GB — good to go."
 echo ""
 
+# ── Auto-clean stale downloads ───────────────────────────────────────────────
+DOWNLOADS_DIR="$(dirname "$0")/downloads"
+mkdir -p "$DOWNLOADS_DIR"
+
+# Always delete .part/.temp files — these are always failed/interrupted junk
+PARTS=$(find "$DOWNLOADS_DIR" \( -name "*.part" -o -name "*.temp.mp4" \) 2>/dev/null)
+if [ -n "$PARTS" ]; then
+  echo "  🧹  Removing failed partial downloads..."
+  find "$DOWNLOADS_DIR" -name "*.part" -delete 2>/dev/null
+  find "$DOWNLOADS_DIR" -name "*.temp.mp4" -delete 2>/dev/null
+  echo "  ✅  Cleaned up."
+  echo ""
+fi
+
+# Delete completed downloads older than 3 days (should be on iPhone by then)
+OLD=$(find "$DOWNLOADS_DIR" -name "*.mp4" -mtime +3 2>/dev/null)
+if [ -n "$OLD" ]; then
+  echo "  🗑️   Removing downloads older than 3 days..."
+  find "$DOWNLOADS_DIR" -name "*.mp4" -mtime +3 -delete 2>/dev/null
+  find "$DOWNLOADS_DIR" -name "*.m4a" -mtime +3 -delete 2>/dev/null
+  find "$DOWNLOADS_DIR" -name "*.json" -mtime +3 -delete 2>/dev/null
+  FREE_BYTES=$(df -k / | tail -1 | awk '{print $4}')
+  FREE_GB=$((FREE_BYTES / 1024 / 1024))
+  echo "  ✅  Done. Free space now: ~${FREE_GB} GB"
+  echo ""
+fi
+
+
 # ── Update yt-dlp if older than 7 days ──────────────────────────────────────
 YTDLP_PATH=$(which yt-dlp)
 if [ -n "$YTDLP_PATH" ]; then
